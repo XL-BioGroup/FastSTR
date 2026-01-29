@@ -169,7 +169,7 @@ If you use **FastSTR** in your research, please cite:
 
 > Xingyu Liao *et al.*,  
 > **Efficient Identification of Short Tandem Repeats via Context-Aware Motif Discovery and Ultra-Fast Sequence Alignment**,  
-> *Nat. Methods*, 2025.
+> *Nat. XXXX*, 2026.
 
 ---
 
