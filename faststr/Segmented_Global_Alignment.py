@@ -533,9 +533,3 @@ def segmented_global_align_algorithm(sequence, motif, indel, mat, mis, ope, ext,
         target_length) + '\n' + '                  0 ' + Align + ' ' + str(
         align_length) + '\n' + 'query             0 ' + Query + ' ' + str(len(sequence) - left - right)
     return Insert, Delete, Mismatch, align, left, right, score, (len(Target) - Target.count('-')) / len(motif)
-
-# tr = 'TAAAATAAACAAAATAAAATAAATTAAACAATTAAATTAAATAAAATAAATTAAA'
-# motif = 'TAAAA'
-# Insert, Delete, Mismatch, align, _, right, _, copy = segmented_global_align_algorithm(tr, motif, 0.15, 2, -5, -7, -3)
-# print(align)
-# print(copy)
