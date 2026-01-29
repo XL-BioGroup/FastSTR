@@ -1,6 +1,6 @@
-import utils
-import scan_subread
-import trs_align
+from . import utils
+from . import scan_subread
+from . import trs_align
 
 
 
