@@ -208,7 +208,7 @@ def trs_align_algorithm(n_candidate_trs, sub_read, p_indel, p_match, mat, mis, g
                 if a_m_t[2] - a_m_t[1] + 1 > 6000:
                     insert_p, delete_p, mismatch_p, align_p, left_p, right_p, score_p, copy_p = Segmented_Global_Alignment.segmented_global_align_algorithm(
                         sub_read[a_m_t[1]:a_m_t[2] + 1], m_p, p_indel, mat, mis, gap, ext, beta)
-                    if insert == None:
+                    if insert_p == None:
                         continue
                     length_p = a_m_t[2] - a_m_t[1] + 1 - right_p - left_p
                     indel_rio_p = (insert_p + delete_p) / (length_p + delete_p)
@@ -444,7 +444,7 @@ def calculate_character_distance(maybe_merge_list_partial, sub_read, consensus_m
                     if m_m_p[2] - m_m_p[1] + 1 > 6000:
                         insert_p, delete_p, mismatch_p, align_p, left_p, right_p, score_p, copy_p = Segmented_Global_Alignment.segmented_global_align_algorithm(
                             sub_read[m_m_p[1]:m_m_p[2] + 1], m_p, p_indel, mat, mis, gap, ext, beta)
-                        if insert == None:
+                        if insert_p == None:
                             continue
                         length_p = m_m_p[2] - m_m_p[1] + 1 - right_p - left_p
                         indel_rio_p = (insert_p + delete_p) / (length_p + delete_p)
@@ -501,7 +501,7 @@ def calculate_character_distance(maybe_merge_list_partial, sub_read, consensus_m
                     if m_m_p[2] - m_m_p[1] + 1 > 6000:
                         insert_p, delete_p, mismatch_p, align_p, left_p, right_p, score_p, copy_p = Segmented_Global_Alignment.segmented_global_align_algorithm(
                             sub_read[m_m_p[1]:m_m_p[2] + 1], m_p, p_indel, mat, mis, gap, ext, beta)
-                        if insert == None:
+                        if insert_p == None:
                             continue
                         length_p = m_m_p[2] - m_m_p[1] + 1 - right_p - left_p
                         indel_rio_p = (insert_p + delete_p) / (length_p + delete_p)
@@ -560,7 +560,7 @@ def calculate_character_distance(maybe_merge_list_partial, sub_read, consensus_m
                     if m_m_p[2] - m_m_p[1] + 1 > 6000:
                         insert_p, delete_p, mismatch_p, align_p, left_p, right_p, score_p, copy_p = Segmented_Global_Alignment.segmented_global_align_algorithm(
                             sub_read[m_m_p[1]:m_m_p[2] + 1], m_p, p_indel, mat, mis, gap, ext, beta)
-                        if insert == None:
+                        if insert_p == None:
                             continue
                         length_p = m_m_p[2] - m_m_p[1] + 1 - right_p - left_p
                         indel_rio_p = (insert_p + delete_p) / (length_p + delete_p)
