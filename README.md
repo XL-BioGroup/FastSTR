@@ -34,7 +34,7 @@ Compared to classical tools like **TRF**, **T-reks**, and **TRASH**, FastSTR ach
 
 ---
 
-## ⚙️ Installation
+## <a id="installation"></a>⚙️ Installation
 
 ### Option 1: Install via `pip`
  
@@ -57,7 +57,7 @@ pip install -e .
 
 ---
 
-## 🚀 Quick Start
+## <a id="quick-start"></a>🚀 Quick Start
 
 ### Basic Command
 
@@ -75,7 +75,7 @@ This runs FastSTR in **strict mode** using the **default model** to identify STR
 
 ---
 
-## ⚡ Command Line Options
+## <a id="command-line-options"></a>⚡ Command Line Options
 
 | Argument | Type | Default | Description |
 |-----------|------|----------|-------------|
@@ -118,7 +118,7 @@ This runs FastSTR in **strict mode** using the **default model** to identify STR
 
 ---
 
-## 📥 Input & Output
+## <a id="input--output"></a>📥 Input & Output
 
 ### Input
 - DNA sequences in **FASTA** format
@@ -133,7 +133,7 @@ This runs FastSTR in **strict mode** using the **default model** to identify STR
 
 ---
 
-## 🧪 Usage
+## <a id="usage"></a>🧪 Usage
 
 ### 1️⃣ Identify STRs in a genome
 ```bash
@@ -147,7 +147,7 @@ faststr --strict --default genome.fa -p 8
 
 ---
 
-## 📈 Performance
+## <a id="performance"></a>📈 Performance
 
 | Dataset             | Genome Size | Tool   | Runtime   | Recall | Precision |
 |--------------------|------------|--------|-----------|--------|-----------|
@@ -163,25 +163,25 @@ faststr --strict --default genome.fa -p 8
 
 ---
 
-## 📚 Citation
+## <a id="citation"></a>📚 Citation
 
 If you use **FastSTR** in your research, please cite:
 
 > Xingyu Liao *et al.*,  
 > **Efficient Identification of Short Tandem Repeats via Context-Aware Motif Discovery and Ultra-Fast Sequence Alignment**,  
-> *Nat. XXXX*, 2026.
+> *Nat. XXX*, 2026.
 
 ---
 
 
-## 📄 License
+## <a id="license"></a>📄 License
 
 This project is licensed under the **MIT License**.  
 See [LICENSE](LICENSE) for more details.
 
 ---
 
-## 🧾 Changelog
+## <a id="changelog"></a>🧾 Changelog
 
 ### v1.0.0 (2025)
 - Initial release of FastSTR
