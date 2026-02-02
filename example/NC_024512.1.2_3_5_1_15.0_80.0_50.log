@@ -1,0 +1,7 @@
+2026-02-02 22:51:27,533 - root - INFO - Program started
+2026-02-02 22:51:27,583 - root - INFO - read gene sequence running time: 0.050350189208984375 seconds
+2026-02-02 22:51:27,583 - root - INFO - divide gene sequence running time: 0.0 seconds
+2026-02-02 22:51:58,038 - root - INFO - detect TRs in parallel running time: 30.45478320121765 seconds
+2026-02-02 22:51:58,052 - root - INFO - merge sub_reads and construct consensus TRs running time: 0.01358342170715332 seconds
+2026-02-02 22:51:58,052 - root - INFO - save the detected TRs running time: 0.0 seconds
+2026-02-02 22:51:58,052 - root - INFO - Program completed
