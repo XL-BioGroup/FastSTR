@@ -19,7 +19,7 @@
 
 ---
 
-## 🌍 Overview
+## <a id="overview"></a>🌍 Overview
 
 **FastSTR** is a novel and efficient tool for de novo detection of short tandem repeats (STRs) in genomic sequences. It combines fast motif recognition with accurate sequence alignment to achieve both high precision and completeness in STR identification. FastSTR is optimized for large-scale genomic datasets and enables rapid detection of repetitive elements without relying on predefined motif libraries or fixed repeat-length thresholds.
 
