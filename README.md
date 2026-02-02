@@ -145,6 +145,11 @@ faststr --normal --default human_genome.fa
 faststr --strict --default genome.fa -p 8
 ```
 
+### 3️⃣ Example run
+```bash
+faststr --strict --default NC_024512.1.fna -p 8
+```
+
 ---
 
 ## <a id="performance"></a>📈 Performance
