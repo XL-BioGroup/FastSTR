@@ -1,2 +1,2 @@
-include README.md run_faststr.py
+include LICENSE README.md run_faststr.py
 recursive-include faststr *.pyx

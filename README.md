@@ -94,7 +94,7 @@ If you cloned the source from GitHub, run the following commands from the reposi
 
 ```bash
 mkdir -p results
-faststr --strict --default example/NC_024512.1.fna -f results -p 8
+faststr --loose --default example/NC_024512.1.fna -f results -p 8
 ```
 
 List the output files:
@@ -137,9 +137,11 @@ The input FASTA, exactly one of the three alignment modes, and `--default` are r
 
 | Mode | Match | Mismatch | Gap open | Gap extend |
 | --- | ---: | ---: | ---: | ---: |
-| `--loose` | 2 | 7 | 7 | 7 |
+| `--loose` | 2 | 3 | 5 | 1 |
 | `--normal` | 2 | 5 | 7 | 3 |
-| `--strict` | 2 | 3 | 5 | 1 |
+| `--strict` | 2 | 7 | 7 | 7 |
+
+The `strict` and `loose` preset names have been corrected: `strict` now uses penalties of 7/7/7, and `loose` uses 3/5/1. To reproduce results from the earlier mapping, use `--loose` for an old `--strict` run and `--strict` for an old `--loose` run. The `normal` preset is unchanged.
 
 Mismatch and gap penalties are shown as positive magnitudes; FastSTR applies them as negative scores during alignment.
 
@@ -179,7 +181,7 @@ FastSTR produces four types of output files. Filenames include the input file st
 
 ### Interpreting the example results
 
-The following examples use actual output from `example/NC_024512.1.fna` and show how to find an STR call from the interval summary and inspect its alignment. These results were generated with `--strict --default -p 8`.
+The following examples use actual output from `example/NC_024512.1.fna` and show how to find an STR call from the interval summary and inspect its alignment. These results were generated with `--loose --default -p 8`.
 
 #### 1. `_summary.csv`: inspect detected repeat regions
 
@@ -267,4 +269,4 @@ Liao, X. et al. Efficient identification of short tandem repeats via context-awa
 
 ## License
 
-The package metadata specifies the **MIT License**. The full license text should also be included in the repository before release.
+FastSTR is distributed under the [MIT License](LICENSE).

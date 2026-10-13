@@ -19,9 +19,9 @@ def parse_args(argv=None):
 
     # --- 模式选择（必选，三选一） ---
     mode_group = parser.add_mutually_exclusive_group(required=True)
-    mode_group.add_argument("--strict", action="store_true", help="Strict mode (match=2, mismatch=3, gap_open=5, gap_extend=1)")
+    mode_group.add_argument("--strict", action="store_true", help="Strict mode (match=2, mismatch=7, gap_open=7, gap_extend=7)")
     mode_group.add_argument("--normal", action="store_true", help="Normal mode (match=2, mismatch=5, gap_open=7, gap_extend=3)")
-    mode_group.add_argument("--loose", action="store_true", help="Loose mode (match=2, mismatch=7, gap_open=7, gap_extend=7)")
+    mode_group.add_argument("--loose", action="store_true", help="Loose mode (match=2, mismatch=3, gap_open=5, gap_extend=1)")
 
     # --- 模型选择（目前只有一个 default）---
     model_group = parser.add_mutually_exclusive_group(required=True)
@@ -59,9 +59,9 @@ def parse_args(argv=None):
 def resolve_parameters(args):
     """Apply required presets, then explicit overrides, independently of CLI order."""
     modes = {
-        'strict': (2, 3, 5, 1),
+        'strict': (2, 7, 7, 7),
         'normal': (2, 5, 7, 3),
-        'loose': (2, 7, 7, 7),
+        'loose': (2, 3, 5, 1),
     }
     mode_name = next(name for name in modes if getattr(args, name))
     if not args.default:
