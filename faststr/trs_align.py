@@ -2,7 +2,7 @@ import math
 from operator import itemgetter
 import numpy as np
 import regex
-from Bio.Align import PairwiseAligner
+from .parasail_backend import PairwiseAligner
 
 from . import utils
 from . import Segmented_Global_Alignment
@@ -42,7 +42,7 @@ def trs_align_algorithm(n_candidate_trs, sub_read, p_indel, p_match, mat, mis, g
             maybe_merge_list.append(c_t)
             consensus_motif = consensus_motif_test
             continue
-        if index + 1 == len(n_candidate_trs[1:]):
+        if index + 1 == len(n_candidate_trs) - 1:
             if len(maybe_merge_list) == 1:
                 after_merge_trs.append(maybe_merge_list[0])
                 maybe_merge_list = [c_t]
@@ -165,10 +165,11 @@ def trs_align_algorithm(n_candidate_trs, sub_read, p_indel, p_match, mat, mis, g
             # 执行局部比对
             try:
                 alignments = aligner.align(seq, sub_read[a_m_t[1]:a_m_t[2] + 1])
-                if alignments:
+                if next(iter(alignments), None) is not None:
                     delete = alignments[0].length - alignments[0].coordinates[1][-1] + alignments[0].coordinates[1][0]
-                    insert = alignments[0].counts()[0] - delete
-                    mismatch = alignments[0].counts()[2]
+                    alignment_counts = alignments[0].counts()
+                    insert = alignment_counts.gaps - delete
+                    mismatch = alignment_counts.mismatches
                     length = alignments[0].length
                     score = alignments[0].score
                     align = alignments[0].format()
@@ -228,15 +229,16 @@ def trs_align_algorithm(n_candidate_trs, sub_read, p_indel, p_match, mat, mis, g
                     # 执行局部比对
                     try:
                         alignments_p = aligner_p.align(seq_p, sub_read[a_m_t[1]:a_m_t[2] + 1])
-                        if alignments_p:
+                        if next(iter(alignments_p), None) is not None:
                             delete_p = alignments_p[0].length - alignments_p[0].coordinates[1][-1] + \
                                        alignments_p[0].coordinates[1][0]
-                            insert_p = alignments_p[0].counts()[0] - delete_p
-                            mismatch_p = alignments_p[0].counts()[2]
+                            alignment_counts_p = alignments_p[0].counts()
+                            insert_p = alignment_counts_p.gaps - delete_p
+                            mismatch_p = alignment_counts_p.mismatches
                             length_p = alignments_p[0].length
                             score_p = alignments_p[0].score
                             align_p = alignments_p[0].format()
-                            copy_p = alignments_p[0].coordinates[0][-1] / len(m_p)
+                            copy_p = (alignments_p[0].coordinates[0][-1] - alignments_p[0].coordinates[0][0]) / len(m_p)
                             left_p = alignments_p[0].coordinates[1][0]
                             right_p = a_m_t[2] - a_m_t[1] + 1 - alignments_p[0].coordinates[1][-1]
                         else:
@@ -327,23 +329,19 @@ def can_standardize_motif(seq1, seq2, motif1):
     start_index = -1
     end_index = -1
     for i in range(len(to_align_seq) // 5 - 3):
-        probe_align = aligner.align(probe, to_align_seq[i * 5:i * 5 + 20])
-        if probe_align:
-            pass
-        else:
+        probe_score = aligner.score(probe, to_align_seq[i * 5:i * 5 + 20])
+        if probe_score <= 0:
             continue
-        if probe_align[0].score >= start_probe[len(motifs[0]) - 1]:
+        if probe_score >= start_probe[len(motifs[0]) - 1]:
             start_index = max(i * 5 - 5, 0)
             break
     if start_index == -1:
         return ''
     for j in range((len(to_align_seq) - start_index - 1) // 5 - 3):
-        probe_align = aligner.align(probe, to_align_seq[len(to_align_seq) - j * 5 - 20:len(to_align_seq) - j * 5])
-        if probe_align:
-            pass
-        else:
+        probe_score = aligner.score(probe, to_align_seq[len(to_align_seq) - j * 5 - 20:len(to_align_seq) - j * 5])
+        if probe_score <= 0:
             continue
-        if probe_align[0].score >= end_probe[len(motifs[0]) - 1]:
+        if probe_score >= end_probe[len(motifs[0]) - 1]:
             end_index = min(len(to_align_seq) - j * 5 + 4, len(to_align_seq) - 1)
             break
     if end_index == -1:
@@ -406,10 +404,11 @@ def calculate_character_distance(maybe_merge_list_partial, sub_read, consensus_m
             # 执行局部比对
             try:
                 alignments = aligner.align(tr, seq)
-                if alignments:
+                if next(iter(alignments), None) is not None:
                     delete = alignments[0].length - alignments[0].coordinates[1][-1] + alignments[0].coordinates[1][0]
-                    insert = alignments[0].counts()[0] - delete
-                    mismatch = alignments[0].counts()[2]
+                    alignment_counts = alignments[0].counts()
+                    insert = alignment_counts.gaps - delete
+                    mismatch = alignment_counts.mismatches
                     length = alignments[0].length
                     score = alignments[0].score
                     align = alignments[0].format()
@@ -464,15 +463,16 @@ def calculate_character_distance(maybe_merge_list_partial, sub_read, consensus_m
                         # 执行局部比对
                         try:
                             alignments_p = aligner_p.align(seq_p, sub_read[m_m_p[1]:m_m_p[2] + 1])
-                            if alignments_p:
+                            if next(iter(alignments_p), None) is not None:
                                 delete_p = alignments_p[0].length - alignments_p[0].coordinates[1][-1] + \
                                            alignments_p[0].coordinates[1][0]
-                                insert_p = alignments_p[0].counts()[0] - delete_p
-                                mismatch_p = alignments_p[0].counts()[2]
+                                alignment_counts_p = alignments_p[0].counts()
+                                insert_p = alignment_counts_p.gaps - delete_p
+                                mismatch_p = alignment_counts_p.mismatches
                                 length_p = alignments_p[0].length
                                 score_p = alignments_p[0].score
                                 align_p = alignments_p[0].format()
-                                copy_p = alignments_p[0].coordinates[0][-1] / len(m_p)
+                                copy_p = (alignments_p[0].coordinates[0][-1] - alignments_p[0].coordinates[0][0]) / len(m_p)
                                 left_p = alignments_p[0].coordinates[1][0]
                                 right_p = m_m_p[2] - m_m_p[1] + 1 - alignments_p[0].coordinates[1][-1]
                             else:
@@ -521,15 +521,16 @@ def calculate_character_distance(maybe_merge_list_partial, sub_read, consensus_m
                         # 执行局部比对
                         try:
                             alignments_p = aligner_p.align(seq_p, sub_read[m_m_p[1]:m_m_p[2] + 1])
-                            if alignments_p:
+                            if next(iter(alignments_p), None) is not None:
                                 delete_p = alignments_p[0].length - alignments_p[0].coordinates[1][-1] + \
                                            alignments_p[0].coordinates[1][0]
-                                insert_p = alignments_p[0].counts()[0] - delete_p
-                                mismatch_p = alignments_p[0].counts()[2]
+                                alignment_counts_p = alignments_p[0].counts()
+                                insert_p = alignment_counts_p.gaps - delete_p
+                                mismatch_p = alignment_counts_p.mismatches
                                 length_p = alignments_p[0].length
                                 score_p = alignments_p[0].score
                                 align_p = alignments_p[0].format()
-                                copy_p = alignments_p[0].coordinates[0][-1] / len(m_p)
+                                copy_p = (alignments_p[0].coordinates[0][-1] - alignments_p[0].coordinates[0][0]) / len(m_p)
                                 left_p = alignments_p[0].coordinates[1][0]
                                 right_p = m_m_p[2] - m_m_p[1] + 1 - alignments_p[0].coordinates[1][-1]
                             else:
@@ -580,15 +581,16 @@ def calculate_character_distance(maybe_merge_list_partial, sub_read, consensus_m
                         # 执行局部比对
                         try:
                             alignments_p = aligner_p.align(seq_p, sub_read[m_m_p[1]:m_m_p[2] + 1])
-                            if alignments_p:
+                            if next(iter(alignments_p), None) is not None:
                                 delete_p = alignments_p[0].length - alignments_p[0].coordinates[1][-1] + \
                                            alignments_p[0].coordinates[1][0]
-                                insert_p = alignments_p[0].counts()[0] - delete_p
-                                mismatch_p = alignments_p[0].counts()[2]
+                                alignment_counts_p = alignments_p[0].counts()
+                                insert_p = alignment_counts_p.gaps - delete_p
+                                mismatch_p = alignment_counts_p.mismatches
                                 length_p = alignments_p[0].length
                                 score_p = alignments_p[0].score
                                 align_p = alignments_p[0].format()
-                                copy_p = alignments_p[0].coordinates[0][-1] / len(m_p)
+                                copy_p = (alignments_p[0].coordinates[0][-1] - alignments_p[0].coordinates[0][0]) / len(m_p)
                                 left_p = alignments_p[0].coordinates[1][0]
                                 right_p = m_m_p[2] - m_m_p[1] + 1 - alignments_p[0].coordinates[1][-1]
                             else:

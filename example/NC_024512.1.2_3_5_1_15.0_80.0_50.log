@@ -1,7 +1,28 @@
-2026-02-02 22:51:27,533 - root - INFO - Program started
-2026-02-02 22:51:27,583 - root - INFO - read gene sequence running time: 0.050350189208984375 seconds
-2026-02-02 22:51:27,583 - root - INFO - divide gene sequence running time: 0.0 seconds
-2026-02-02 22:51:58,038 - root - INFO - detect TRs in parallel running time: 30.45478320121765 seconds
-2026-02-02 22:51:58,052 - root - INFO - merge sub_reads and construct consensus TRs running time: 0.01358342170715332 seconds
-2026-02-02 22:51:58,052 - root - INFO - save the detected TRs running time: 0.0 seconds
-2026-02-02 22:51:58,052 - root - INFO - Program completed
+2026-10-13 13:43:41,931 - root - INFO - Program started
+2026-10-13 13:43:41,931 - root - INFO - Run resources: logical_cpus=96 cpu_affinity_count=96 requested_workers=8
+2026-10-13 13:43:41,931 - root - INFO - System load average at start (1/5/15 min): (49.51025390625, 50.078125, 52.53564453125)
+2026-10-13 13:43:41,931 - root - INFO - Effective parameters: match=2 mismatch=-3 gap_open=-5 gap_extend=-1 p_indel=15.0% p_match=80.0% score=50 beta=0.045 start=1 end=0 read_length=15000 overlap=1000 processes=8 insertion_share=0.5 input=/home/wenlong/project/20240330_TR_Detection/FastSTR/run_checks/github-example-20261013/input/NC_024512.1.fna output=/home/wenlong/project/20240330_TR_Detection/FastSTR/run_checks/github-example-20261013/outputs
+2026-10-13 13:43:41,931 - root - INFO - Stage started: reading input
+2026-10-13 13:43:41,931 - root - INFO - Input file: path=/home/wenlong/project/20240330_TR_Detection/FastSTR/run_checks/github-example-20261013/input/NC_024512.1.fna size_bytes=3667404
+2026-10-13 13:43:41,985 - root - INFO - read gene sequence running time: 0.053177379071712494 seconds
+2026-10-13 13:43:41,985 - root - INFO - Stage started: dividing sequences
+2026-10-13 13:43:41,987 - root - INFO - divide gene sequence running time: 0.0023896563798189163 seconds
+2026-10-13 13:43:41,988 - root - INFO - Input workload: sequences=1 processed_bases=3667352 windows=262 (bases after start/end slicing; before window overlap)
+2026-10-13 13:43:41,988 - root - INFO - Stage started: detecting window TRs
+2026-10-13 13:43:41,988 - root - INFO - Window transport: fork_index; context: fork
+2026-10-13 13:43:41,988 - root - INFO - Window task chunksize: 3; groups per worker: 16
+2026-10-13 13:43:46,309 - root - INFO - detect TRs in parallel running time: 4.321418488398194 seconds
+2026-10-13 13:43:46,309 - root - INFO - Stage started: cross-window candidate construction
+2026-10-13 13:43:46,324 - root - INFO - cross-window candidate construction running time: 0.014205 seconds; tasks=0
+2026-10-13 13:43:46,324 - root - INFO - Stage started: cross-window realignment
+2026-10-13 13:43:46,324 - root - INFO - cross-window realignment running time: 0.000006 seconds
+2026-10-13 13:43:46,324 - root - INFO - Stage started: final compatibility filtering and region merging
+2026-10-13 13:43:46,330 - root - INFO - final compatibility filtering and region merging running time: 0.005457 seconds
+2026-10-13 13:43:46,330 - root - INFO - merge sub_reads and construct consensus TRs running time: 0.02016643062233925 seconds
+2026-10-13 13:43:46,330 - root - INFO - Stage started: saving results
+2026-10-13 13:43:46,340 - root - INFO - save the detected TRs running time: 0.010069021955132484 seconds
+2026-10-13 13:43:46,340 - root - INFO - Results saved: detailed_calls=446 summary_regions=257
+2026-10-13 13:43:46,341 - root - INFO - Output files: summary=/home/wenlong/project/20240330_TR_Detection/FastSTR/run_checks/github-example-20261013/outputs/NC_024512.1.2_3_5_1_15.0_80.0_50_summary.csv detailed=/home/wenlong/project/20240330_TR_Detection/FastSTR/run_checks/github-example-20261013/outputs/NC_024512.1.2_3_5_1_15.0_80.0_50_detailed.dat aligned=/home/wenlong/project/20240330_TR_Detection/FastSTR/run_checks/github-example-20261013/outputs/NC_024512.1.2_3_5_1_15.0_80.0_50_aligned.dat
+2026-10-13 13:43:46,341 - root - INFO - Program completed
+2026-10-13 13:43:46,341 - root - INFO - Run elapsed wall time: 4.409803 seconds (log setup to completion/failure; excludes Python imports)
+2026-10-13 13:43:46,341 - root - INFO - System load average at end (1/5/15 min): (50.1103515625, 50.193359375, 52.56005859375)

@@ -235,14 +235,30 @@ def calculate_cross_subread_tr(cross_tr_tuple, cross_tr_seq, p_indel, p_match, m
     return Cross_Tr
 
 
-def handling_compatibility(to_final_trs_list, p_match, p_indel):
+def _overlap_gain(length, match_ratio, indel_ratio, region_length, insertion_share):
+    """Gain using an assumed insertion share of the total indel rate.
+
+    The reported indel ratio is (I + D) / (L + D), where L is the
+    alignment-length term. Solving for the estimated insertion share gives
+    I/L = theta * p / (1 - (1 - theta) * p).
+    """
+    if insertion_share == 0.5:
+        # Preserve the legacy floating-point arithmetic order exactly.
+        return 2 * length * (1 + match_ratio) * (1 - indel_ratio) / (2 - indel_ratio) - region_length
+    return (length * (1 + match_ratio) * (1 - indel_ratio) /
+            (1 - (1 - insertion_share) * indel_ratio) - region_length)
+
+
+def handling_compatibility(to_final_trs_list, p_match, p_indel, insertion_share=0.5):
+    if not 0 <= insertion_share <= 1:
+        raise ValueError("insertion_share must be between 0 and 1")
     if len(to_final_trs_list) < 1:
         return to_final_trs_list, []
     if len(to_final_trs_list) < 2:
         return to_final_trs_list, [(1, to_final_trs_list[0][1], to_final_trs_list[0][2], to_final_trs_list[0][0],
-                                    2 * (1 + to_final_trs_list[0][4]) * (1 - to_final_trs_list[0][3]) / (
-                                            2 - to_final_trs_list[0][3]) - 1)]
-    P_th_profit = 2 * (1 + p_match) * (1 - p_indel) / (2 - p_indel)
+                                    _overlap_gain(1, to_final_trs_list[0][4], to_final_trs_list[0][3],
+                                                  1, insertion_share))]
+    P_th_profit = _overlap_gain(1, p_match, p_indel, 0, insertion_share)
     region_minprop = 1 / P_th_profit
     final_trs_list = []
     can_retain = [1] * len(to_final_trs_list)
@@ -258,13 +274,13 @@ def handling_compatibility(to_final_trs_list, p_match, p_indel):
             if cur_repeat_region == []:
                 cur_repeat_region.append(t_f)
                 max_repeat_region_end = t_f[2]
-                cur_repeat_region_score.append(2 * (1 + t_f[4]) * (1 - t_f[3]) / (2 - t_f[3]) - 1)
+                cur_repeat_region_score.append(_overlap_gain(1, t_f[4], t_f[3], 1, insertion_share))
             else:
                 one_region_legnth = max(max_repeat_region_end, t_f[2]) - cur_repeat_region[0][1]
                 one_region_score = []
                 for c_r_r in cur_repeat_region:
-                    cache_score = 2 * (c_r_r[2] - c_r_r[1] + 1) * (1 + c_r_r[4]) * (1 - c_r_r[3]) / (
-                            2 - c_r_r[3]) - one_region_legnth
+                    cache_score = _overlap_gain(c_r_r[2] - c_r_r[1] + 1, c_r_r[4], c_r_r[3],
+                                                one_region_legnth, insertion_share)
                     if cache_score >= 0:
                         one_region_score.append(cache_score / one_region_legnth)
                     else:
@@ -282,13 +298,13 @@ def handling_compatibility(to_final_trs_list, p_match, p_indel):
                                                        top_three_tr[1][0], top_three_tr[2][1][0], top_three_tr[2][0]))
                         cur_repeat_region = [t_f]
                         max_repeat_region_end = t_f[2]
-                        cur_repeat_region_score = [2 * (1 + t_f[4]) * (1 - t_f[3]) / (2 - t_f[3]) - 1]
+                        cur_repeat_region_score = [_overlap_gain(1, t_f[4], t_f[3], 1, insertion_share)]
                         break
                 if len(one_region_score) == len(cur_repeat_region):
                     cur_repeat_region.append(t_f)
                     cur_repeat_region_score = one_region_score
-                    cache_score = 2 * (t_f[2] - t_f[1] + 1) * (1 + t_f[4]) * (1 - t_f[3]) / (
-                            2 - t_f[3]) - one_region_legnth
+                    cache_score = _overlap_gain(t_f[2] - t_f[1] + 1, t_f[4], t_f[3],
+                                                one_region_legnth, insertion_share)
                     cur_repeat_region_score.append(cache_score / one_region_legnth)
                     max_repeat_region_end = max(max_repeat_region_end, t_f[2])
             continue
@@ -299,16 +315,30 @@ def handling_compatibility(to_final_trs_list, p_match, p_indel):
             tr_length_pro1 = (t_f[2] - t_f[1] + 1) / region_length
             tr_length_pro2 = (to_final_trs_list[pos][2] - to_final_trs_list[pos][1] + 1) / region_length
             if len(to_final_trs_list[pos][0]) == len(t_f[0]) and to_final_trs_list[pos][0] in t_f[0] + t_f[0]:
-                if tr_length_pro1 < tr_length_pro2:
+                # A discarded same-motif candidate must not delete another call.
+                if can_retain[pos] == 0:
+                    continue
+                other = to_final_trs_list[pos]
+                if t_f[1] == other[1] and t_f[2] == other[2]:
+                    # Identical spans: higher match, lower indel, then higher score.
+                    # Exact quality ties retain the earlier input call.
+                    if (t_f[4], -t_f[3], t_f[5]) >= (other[4], -other[3], other[5]):
+                        can_retain[pos] = 0
+                    else:
+                        can_retain[index] = 0
+                        break
+                elif t_f[1] <= other[1] and t_f[2] >= other[2]:
                     can_retain[pos] = 0
-                else:
+                elif other[1] <= t_f[1] and other[2] >= t_f[2]:
                     can_retain[index] = 0
+                    break
+                # Partial overlaps retain both at this comparison; skip gain.
                 continue
             if tr_length_pro1 >= 0.8 and tr_length_pro2 <= region_minprop or tr_length_pro1 <= region_minprop and tr_length_pro2 >= 0.8:
-                gain1 = 2 * (t_f[2] - t_f[1] + 1) * (1 + t_f[4]) * (1 - t_f[3]) / (2 - t_f[3]) - region_length
-                gain2 = 2 * (to_final_trs_list[pos][2] - to_final_trs_list[pos][1] + 1) * (
-                        1 + to_final_trs_list[pos][4]) * (1 - to_final_trs_list[pos][3]) / (
-                                2 - to_final_trs_list[pos][3]) - region_length
+                gain1 = _overlap_gain(t_f[2] - t_f[1] + 1, t_f[4], t_f[3], region_length, insertion_share)
+                gain2 = _overlap_gain(to_final_trs_list[pos][2] - to_final_trs_list[pos][1] + 1,
+                                      to_final_trs_list[pos][4], to_final_trs_list[pos][3],
+                                      region_length, insertion_share)
                 if gain2 < 0:
                     can_retain[pos] = 0
                 if gain1 < 0:
@@ -319,13 +349,13 @@ def handling_compatibility(to_final_trs_list, p_match, p_indel):
             if cur_repeat_region == []:
                 cur_repeat_region.append(t_f)
                 max_repeat_region_end = t_f[2]
-                cur_repeat_region_score.append(2 * (1 + t_f[4]) * (1 - t_f[3]) / (2 - t_f[3]) - 1)
+                cur_repeat_region_score.append(_overlap_gain(1, t_f[4], t_f[3], 1, insertion_share))
             else:
                 one_region_legnth = max(max_repeat_region_end, t_f[2]) - cur_repeat_region[0][1]
                 one_region_score = []
                 for c_r_r in cur_repeat_region + [t_f]:
-                    cache_score = 2 * (c_r_r[2] - c_r_r[1] + 1) * (1 + c_r_r[4]) * (1 - c_r_r[3]) / (
-                            2 - c_r_r[3]) - one_region_legnth
+                    cache_score = _overlap_gain(c_r_r[2] - c_r_r[1] + 1, c_r_r[4], c_r_r[3],
+                                                one_region_legnth, insertion_share)
                     if cache_score >= 0:
                         one_region_score.append(cache_score / one_region_legnth)
                     else:
@@ -343,7 +373,7 @@ def handling_compatibility(to_final_trs_list, p_match, p_indel):
                                                        top_three_tr[1][0], top_three_tr[2][1][0], top_three_tr[2][0]))
                         cur_repeat_region = [t_f]
                         max_repeat_region_end = t_f[2]
-                        cur_repeat_region_score = [2 * (1 + t_f[4]) * (1 - t_f[3]) / (2 - t_f[3]) - 1]
+                        cur_repeat_region_score = [_overlap_gain(1, t_f[4], t_f[3], 1, insertion_share)]
                         break
                 if len(one_region_score) == len(cur_repeat_region) + 1:
                     cur_repeat_region.append(t_f)

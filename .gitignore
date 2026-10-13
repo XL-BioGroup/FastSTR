@@ -1,0 +1,13 @@
+.idea/
+__pycache__/
+*.py[cod]
+*.so
+*.pyd
+build/
+dist/
+*.egg-info/
+.venv/
+.venvs/
+.pytest_cache/
+/results/
+/GCA_009914755.4_T2T-CHM13v2.0_genomic*

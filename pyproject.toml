@@ -1,10 +1,10 @@
 [build-system]
-requires = ["setuptools>=61.0", "wheel"]
+requires = ["setuptools>=77.0.3", "wheel", "Cython>=3.0,<4"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "FastSTR"
-version = "1.0.0"
+version = "1.1.0"
 description = "FastSTR: A high-performance tool for short tandem repeat (STR) detection and analysis from genome assemblies."
 readme = "README.md"
 requires-python = ">=3.9"
@@ -21,16 +21,21 @@ classifiers = [
     "Intended Audience :: Science/Research",
     "Topic :: Scientific/Engineering :: Bio-Informatics",
     "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Operating System :: OS Independent"
 ]
 
 # 项目依赖
 dependencies = [
-    "biopython==1.83",
-    "numpy==1.26.0",
-    "pandas==2.2.2",
-    "regex==2024.9.11",
-    "scikit-learn==1.5.2"
+    "biopython>=1.83,<2",
+    "numpy>=1.23.5,<3",
+    "pandas>=2.2.2,<4",
+    "regex>=2024.9.11",
+    "parasail>=1.3.4,<2"
 ]
 
 
@@ -50,3 +55,6 @@ include = ["faststr*"]
 exclude = ["tests*"]
 
 
+
+[tool.setuptools.package-data]
+faststr = ["*.pyx"]

@@ -1,0 +1,2 @@
+include README.md run_faststr.py
+recursive-include faststr *.pyx

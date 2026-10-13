@@ -2,20 +2,19 @@ import math
 import numpy as np
 import regex
 from Bio import SeqIO
+from Bio.Seq import Seq
+from .motif_stats import scan_stats
+from .fasta_io import read_fasta as _read_fasta_io
+
+try:
+    from ._anchors import get_anchors as _compiled_get_anchors
+except ImportError:
+    _compiled_get_anchors = None
 
 
 # 获取每条染色体从start_index到end_index上的碱基序列
 def read_fasta(path, start_index=1, end_index=0):
-    sequences = []
-    with open(path, "r") as handle:
-        for record in SeqIO.parse(handle, "fasta"):
-            if end_index == 0:
-                record.seq = record.seq.upper()[start_index - 1:]
-            else:
-                record.seq = record.seq.upper()[start_index - 1:end_index]
-
-            sequences.append(record)
-    return sequences
+    return _read_fasta_io(path, start_index, end_index)
 
 
 def make_sub_reads(gene_sequence, read_length, overlap_length):
@@ -34,7 +33,7 @@ def make_sub_reads(gene_sequence, read_length, overlap_length):
     return sub_reads
 
 
-def get_anchors(sub_read):
+def get_anchors_python(sub_read):
     anchor_dict = {i: set() for i in range(1, 9)}
     anchor_mark_dict = {i: [0] * len(sub_read) for i in range(1, 9)}
     same_bases = [[], [], [], []]
@@ -59,6 +58,16 @@ def get_anchors(sub_read):
     return anchor_dict, anchor_mark_dict
 
 
+def get_anchors(sub_read):
+    """Use the compiled, order-preserving loop when available."""
+    if _compiled_get_anchors is not None:
+        if isinstance(sub_read, str):
+            return _compiled_get_anchors(sub_read)
+        if isinstance(sub_read, Seq):
+            return _compiled_get_anchors(str(sub_read))
+    return get_anchors_python(sub_read)
+
+
 def if_motif_is_tr(motif):
     if not motif:
         return False
@@ -69,24 +78,7 @@ def if_motif_is_tr(motif):
 
 
 def tri_gram_model(sequence, n):
-    # 获取二元、三元计数和二元位置
-    tri_count = {}
-    bi_count = {'AA': 0, 'AG': 0, 'AC': 0, 'AT': 0, 'GA': 0, 'GG': 0, 'GC': 0, 'GT': 0, 'CA': 0, 'CG': 0, 'CC': 0,
-                'CT': 0, 'TA': 0, 'TG': 0, 'TC': 0, 'TT': 0}
-    bi_pos = {'AA': [], 'AG': [], 'AC': [], 'AT': [], 'GA': [], 'GG': [], 'GC': [], 'GT': [], 'CA': [], 'CG': [],
-              'CC': [], 'CT': [], 'TA': [], 'TG': [], 'TC': [], 'TT': []}
-    for i in range(len(sequence) - 2):
-        if not set(sequence[i:i + 3]).issubset({'A', 'G', 'T', 'C'}):
-            continue
-        if sequence[i:i + 3] not in tri_count:
-            tri_count[sequence[i:i + 3]] = 1
-        else:
-            tri_count[sequence[i:i + 3]] += 1
-        bi_pos[sequence[i:i + 2]].append(i)
-        bi_count[sequence[i:i + 2]] += 1
-        if i == len(sequence) - 3:
-            bi_pos[sequence[i + 1:i + 3]].append(i + 1)
-            bi_count[sequence[i + 1:i + 3]] += 1
+    tri_count, bi_count, bi_pos, _ = scan_stats(sequence, False)
 
     # 根据种子获取备选motif
     sorted_seed = sorted(bi_count, key=lambda x: bi_count[x], reverse=True)
@@ -115,13 +107,14 @@ def tri_gram_model(sequence, n):
 
         for pos in bi_pos[max_seed]:
             if pos + n in bipos_set:
-                if if_motif_is_tr(sequence[pos:pos + n]):
+                candidate = sequence[pos:pos + n]
+                if if_motif_is_tr(candidate):
                     continue
-                if not set(sequence[pos:pos + n]).issubset({'A', 'G', 'T', 'C'}):
+                if not set(candidate).issubset({'A', 'G', 'T', 'C'}):
                     continue
                 # if sequence[pos:pos + n] in m + m:
                 #     true_motif.append(sequence[pos:pos + n])
-                motifs.add(sequence[pos:pos + n])
+                motifs.add(candidate)
         if motifs and k == 2:
             break
         k += 1
@@ -134,6 +127,7 @@ def tri_gram_model(sequence, n):
         if bi_count[tri[:2]] == 0:
             continue
         tri_gram[tri] = tri_count[tri] / bi_count[tri[:2]]
+    motifs = sorted(motifs)
     p_rationality = []
     for mot in motifs:
         p_r = 1
@@ -142,7 +136,6 @@ def tri_gram_model(sequence, n):
         p_rationality.append(p_r)
     sorted_prationalty = sorted(p_rationality)
     max_prationalty = sorted_prationalty[-1]
-    motifs = list(motifs)
     alternative_motif = [str(motifs[index]) for index, value in enumerate(p_rationality) if value == max_prationalty]
     final_motif = [alternative_motif[0]]
     if len(alternative_motif) == 1:
@@ -182,31 +175,9 @@ def get_motif_marks(sequence, motif):
 
 
 def  high_motif_detection(sequence, n):
-    # 获取二元、三元计数和二元位置
-    tri_count = {}
-    bi_count = {'AA': 0, 'AG': 0, 'AC': 0, 'AT': 0, 'GA': 0, 'GG': 0, 'GC': 0, 'GT': 0, 'CA': 0, 'CG': 0, 'CC': 0,
-                'CT': 0, 'TA': 0, 'TG': 0, 'TC': 0, 'TT': 0}
-    bi_pos = {'AA': [], 'AG': [], 'AC': [], 'AT': [], 'GA': [], 'GG': [], 'GC': [], 'GT': [], 'CA': [], 'CG': [],
-              'CC': [], 'CT': [], 'TA': [], 'TG': [], 'TC': [], 'TT': []}
-    base_de_bruijn = np.zeros((4, 4))
+    tri_count, bi_count, bi_pos, base_de_bruijn = scan_stats(sequence, True)
     base_mark = {'A': 0, 'G': 1, 'C': 2, 'T': 3}
     base_annotation = {0: 'A', 1: 'G', 2: 'C', 3: 'T'}
-    for i in range(len(sequence) - 2):
-        if i > 0 and set(sequence[i - 1:i + 1]).issubset({'A', 'G', 'T', 'C'}):
-            base_de_bruijn[base_mark[sequence[i - 1]]][base_mark[sequence[i]]] += 1
-        if not set(sequence[i:i + 3]).issubset({'A', 'G', 'T', 'C'}):
-            continue
-        if sequence[i:i + 3] not in tri_count:
-            tri_count[sequence[i:i + 3]] = 1
-        else:
-            tri_count[sequence[i:i + 3]] += 1
-        bi_pos[sequence[i:i + 2]].append(i)
-        bi_count[sequence[i:i + 2]] += 1
-        if i == len(sequence) - 3:
-            bi_pos[sequence[i + 1:i + 3]].append(i + 1)
-            bi_count[sequence[i + 1:i + 3]] += 1
-            base_de_bruijn[base_mark[sequence[i]]][base_mark[sequence[i + 1]]] += 1
-            base_de_bruijn[base_mark[sequence[i + 1]]][base_mark[sequence[i + 2]]] += 1
 
     # 根据种子获取备选motif
     sorted_seed = sorted(bi_count, key=lambda x: bi_count[x], reverse=True)
@@ -221,11 +192,12 @@ def  high_motif_detection(sequence, n):
 
         for pos in bi_pos[max_seed]:
             if pos + n in bipos_set:
-                if if_motif_is_tr(sequence[pos:pos + n]):
+                candidate = sequence[pos:pos + n]
+                if if_motif_is_tr(candidate):
                     continue
-                if not set(sequence[pos:pos + n]).issubset({'A', 'G', 'T', 'C'}):
+                if not set(candidate).issubset({'A', 'G', 'T', 'C'}):
                     continue
-                motifs.add(sequence[pos:pos + n])
+                motifs.add(candidate)
         if motifs and k == 2:
             break
         k += 1
@@ -238,6 +210,7 @@ def  high_motif_detection(sequence, n):
         if bi_count[tri[:2]] == 0:
             continue
         tri_gram[tri] = tri_count[tri] / bi_count[tri[:2]]
+    motifs = sorted(motifs)
     p_rationality = []
     for mot in motifs:
         p_r = 1
@@ -247,7 +220,6 @@ def  high_motif_detection(sequence, n):
     sorted_prationalty = sorted(p_rationality)
     max_prationalty = sorted_prationalty[-1]
     motifs_mar = []
-    motifs = list(motifs)
     arfa = 0
     if n == 5:
         arfa = 0.3
@@ -368,16 +340,19 @@ def calculate_base_frequencye(motif, copy, base_de_bruijn, base_mark):
     base_de_bruijn = base_de_bruijn.copy()
     base_frequency = 0
     for i in range(1, len(motif)):
-        if base_de_bruijn[base_mark[motif[i - 1]]][base_mark[motif[i]]] >= copy:
+        row = base_de_bruijn[base_mark[motif[i - 1]]]
+        column = base_mark[motif[i]]
+        value = row[column]
+        if value >= copy:
             base_frequency += copy
-            base_de_bruijn[base_mark[motif[i - 1]]][base_mark[motif[i]]] -= copy
+            row[column] -= copy
         else:
-            if base_de_bruijn[base_mark[motif[i - 1]]][base_mark[motif[i]]] >= 0.6 * copy:
-                base_frequency += base_de_bruijn[base_mark[motif[i - 1]]][base_mark[motif[i]]]
+            if value >= 0.6 * copy:
+                base_frequency += value
             else:
                 base_frequency += 0
-            if base_de_bruijn[base_mark[motif[i - 1]]][base_mark[motif[i]]] > 0:
-                base_de_bruijn[base_mark[motif[i - 1]]][base_mark[motif[i]]] = 0
+            if value > 0:
+                row[column] = 0
 
     return base_frequency
 

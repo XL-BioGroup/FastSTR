@@ -4,6 +4,31 @@ from collections import deque
 import numpy as np
 import pandas as pd
 
+try:
+    from ._rpta import align_min as _native_rpta, PackedPath, format_packed
+except ImportError:
+    _native_rpta = None
+
+
+def _rpta_for_global(standard_seq, seq, mat, mis, gap, logo=0):
+    # Only this internal caller needs minima, never the complete diagonal sets.
+    # Restrict the native integer representation to exactly representable input;
+    # all other inputs keep the original Python arithmetic and return objects.
+    if (_native_rpta is not None
+            and all(type(v) in (int, float) and abs(v) < 2**52 and int(v) == v
+                    for v in (mat, mis, gap))
+            and max(abs(mat), abs(mis), abs(gap)) * (len(seq) + len(standard_seq) + 1) < 2**52
+            and str(seq).isascii() and str(standard_seq).isascii()):
+        return _native_rpta(str(standard_seq).encode('ascii'), str(seq).encode('ascii'),
+                            int(mat), int(mis), int(gap), logo)
+    return realtime_path_tracking_alignment(standard_seq, seq, mat, mis, gap, logo)
+
+
+def _format_for_global(align_path, seq, motif, stab_l):
+    if _native_rpta is not None and isinstance(align_path, PackedPath):
+        return format_packed(align_path, seq, motif, stab_l)
+    return format_alignment(align_path, seq, motif, stab_l)
+
 
 
 # 寻找最佳解释：原则是如果有整motif长度，首选整motif长度，如果有多个，选取错误率最低的；如果没有整motif长度，则选取他周边是整motif长度，且编辑距
@@ -275,12 +300,12 @@ def global_motif_multiple_align(seq, motif, logo, indel, mat, mis, ope, ext, mar
             indel = indel_num if indel_num < indel else indel
         if max_score == 0 and align_path[len(seq)][stab_l] == -1:
             return 0, 0, 0, '', len(seq)
-        format_align = format_alignment(align_path, seq, motif, stab_l)
+        format_align = _format_for_global(align_path, seq, motif, stab_l)
         left = real_seq_length - format_align[5]
         return insert_num, delete_num, mismatch, format_align, left
     # 如果是结尾，则不需要整motif长度,选取最佳匹配长度
     if logo == 2:
-        align_score, diagonal_num, align_path = realtime_path_tracking_alignment(standard_seq, seq, mat, mis, ope, 1)
+        align_score, diagonal_num, align_path = _rpta_for_global(standard_seq, seq, mat, mis, ope, 1)
         max_score = np.max(np.array(align_score))
         if max_score < 0:
             return 0, 0, 0, '', len(seq)
@@ -309,18 +334,19 @@ def global_motif_multiple_align(seq, motif, logo, indel, mat, mis, ope, ext, mar
             delete_num = indel_num - insert_num if indel_num < indel else delete_num
             stab_l = c_l if indel_num < indel else stab_l
             indel = indel_num if indel_num < indel else indel
-        format_align = format_alignment(align_path, seq[:row], motif, stab_l)
+        format_align = _format_for_global(align_path, seq[:row], motif, stab_l)
         right = real_seq_length - row
         return insert_num, delete_num, mismatch, format_align, right
     # 如果不是结尾，那么必须是整motif长度
-    align_score, diagonal_num, align_path = realtime_path_tracking_alignment(standard_seq, seq, mat, mis, ope)
+    align_score, diagonal_num, align_path = _rpta_for_global(standard_seq, seq, mat, mis, ope)
     candidate_length = []
     indel = real_seq_length + 1
     mismatch = real_seq_length + 1
     insert_num = 0
     delete_num = 0
+    highest_score = max(align_score)
     for tr_l, a_s in enumerate(align_score):
-        if (tr_l - marks % n) % n == 0 and a_s == max(align_score):
+        if (tr_l - marks % n) % n == 0 and a_s == highest_score:
             candidate_length.append(tr_l)
     # 如果有整motif长度,选取indel错误率最低的
     if candidate_length:
@@ -333,7 +359,7 @@ def global_motif_multiple_align(seq, motif, logo, indel, mat, mis, ope, ext, mar
             delete_num = indel_num - insert_num if indel_num < indel else delete_num
             stab_l = c_l if indel_num < indel else stab_l
             indel = indel_num if indel_num < indel else indel
-        format_align = format_alignment(align_path, seq, motif, stab_l)
+        format_align = _format_for_global(align_path, seq, motif, stab_l)
         return insert_num, delete_num, mismatch, format_align
     # 如果没有整motif长度，那么选取比对分数最高的整motif长度，并从中选取indel最低的
     integralmultiples_motif = []
@@ -353,7 +379,7 @@ def global_motif_multiple_align(seq, motif, logo, indel, mat, mis, ope, ext, mar
         delete_num = indel_num - insert_num if indel_num < indel else delete_num
         stab_l = c_l if indel_num < indel else stab_l
         indel = indel_num if indel_num < indel else indel
-    format_align = format_alignment(align_path, seq, motif, stab_l)
+    format_align = _format_for_global(align_path, seq, motif, stab_l)
     return insert_num, delete_num, mismatch, format_align
 
 
@@ -533,3 +559,9 @@ def segmented_global_align_algorithm(sequence, motif, indel, mat, mis, ope, ext,
         target_length) + '\n' + '                  0 ' + Align + ' ' + str(
         align_length) + '\n' + 'query             0 ' + Query + ' ' + str(len(sequence) - left - right)
     return Insert, Delete, Mismatch, align, left, right, score, (len(Target) - Target.count('-')) / len(motif)
+
+# tr = 'TAAAATAAACAAAATAAAATAAATTAAACAATTAAATTAAATAAAATAAATTAAA'
+# motif = 'TAAAA'
+# Insert, Delete, Mismatch, align, _, right, _, copy = segmented_global_align_algorithm(tr, motif, 0.15, 2, -5, -7, -3)
+# print(align)
+# print(copy)

@@ -1,12 +1,17 @@
 import math
 import regex
-from sklearn.cluster import DBSCAN
+from .dbscan_1d import DBSCAN
 import numpy as np
-from Bio.Align import PairwiseAligner
+from .parasail_backend import PairwiseAligner
 
 from . import utils
 
-def cluster_anchors(anchors, anchor_mark_list, indel, cover):
+try:
+    from ._clusters import cluster_anchors as _compiled_cluster_anchors
+except ImportError:
+    _compiled_cluster_anchors = None
+
+def cluster_anchors_python(anchors, anchor_mark_list, indel, cover):
     if anchors == []:
         return []
     fuzzy_repeating_region = []
@@ -35,16 +40,17 @@ def cluster_anchors(anchors, anchor_mark_list, indel, cover):
         cluster_last = max(item[0] for item in cluster_points)
         l = cluster_last - cluster_first + 1
         anchor_density = len(cluster_points) / l
+        cluster_marks = anchor_mark_list[cluster_first:cluster_last + 1]
         if l >= 25 and anchor_density >= min(0.81, (1 - indel) * cover):
             start_index = -1
             end_index = -1
             logo = 0
-            current_density = sum(anchor_mark_list[cluster_first:cluster_last + 1][:25])
+            current_density = sum(cluster_marks[:25])
             if logo == 0:
-                for i in range(1, len(anchor_mark_list[cluster_first:cluster_last + 1]) - 25 + 1):
+                for i in range(1, len(cluster_marks) - 25 + 1):
                     # 更新窗口内的区密度
-                    current_density = current_density - anchor_mark_list[cluster_first:cluster_last + 1][i - 1] + \
-                                      anchor_mark_list[cluster_first:cluster_last + 1][i + 25 - 1]
+                    current_density = current_density - cluster_marks[i - 1] + \
+                                      cluster_marks[i + 25 - 1]
                     if start_index == -1:
                         if current_density >= start_rought_judgment[anchor_dis]:
                             start_index = max(i - start_expand[anchor_dis], 0)
@@ -53,21 +59,21 @@ def cluster_anchors(anchors, anchor_mark_list, indel, cover):
                         break
             if logo == 0:
                 continue
-            current_density = sum(anchor_mark_list[cluster_first:cluster_last + 1][-25:])
+            current_density = sum(cluster_marks[-25:])
             if current_density >= end_rought_judgment[anchor_dis]:
-                end_index = len(anchor_mark_list[cluster_first:cluster_last + 1]) - 1
+                end_index = len(cluster_marks) - 1
             else:
-                for i in range(len(anchor_mark_list[cluster_first:cluster_last + 1]) - 2, start_index + 23, -1):
-                    current_density = current_density - anchor_mark_list[cluster_first:cluster_last + 1][i + 1] + \
-                                      anchor_mark_list[cluster_first:cluster_last + 1][i - 25 + 1]
+                for i in range(len(cluster_marks) - 2, start_index + 23, -1):
+                    current_density = current_density - cluster_marks[i + 1] + \
+                                      cluster_marks[i - 25 + 1]
                     if current_density >= end_rought_judgment[anchor_dis]:
                         end_index = min(i + end_expand[anchor_dis],
-                                        len(anchor_mark_list[cluster_first:cluster_last + 1]) - 1)
+                                        len(cluster_marks) - 1)
                         break
             fuzzy_repeating_region.append(
                 (cluster_first, cluster_last, cluster_first + start_index, cluster_first + end_index, 1))
         elif l >= 25:
-            current_density = sum(anchor_mark_list[cluster_first:cluster_last + 1][:25])
+            current_density = sum(cluster_marks[:25])
             start_index = -1
             end_index = -1
             fuzzy_tr_start_index = -1
@@ -80,13 +86,13 @@ def cluster_anchors(anchors, anchor_mark_list, indel, cover):
             if current_density >= difinition_rough_judgment[anchor_dis]:
                 logo = 1
             if current_density >= end_rought_judgment[anchor_dis]:
-                end_index = min(29, len(anchor_mark_list[cluster_first:cluster_last + 1]) - 1)
+                end_index = min(29, len(cluster_marks) - 1)
             if current_density >= fuzzy_tr_anchor_boundary_density[anchor_dis]:
-                fuzzy_tr_end_index = len(anchor_mark_list[cluster_first:cluster_last + 1]) - 1
+                fuzzy_tr_end_index = len(cluster_marks) - 1
             Q_support_domain_mod5 = [current_density]
-            for i in range(1, len(anchor_mark_list[cluster_first:cluster_last + 1]) - 25 + 1):
-                current_density = current_density - anchor_mark_list[cluster_first:cluster_last + 1][i - 1] + \
-                                  anchor_mark_list[cluster_first:cluster_last + 1][i + 25 - 1]
+            for i in range(1, len(cluster_marks) - 25 + 1):
+                current_density = current_density - cluster_marks[i - 1] + \
+                                  cluster_marks[i + 25 - 1]
                 if start_index == -1:
                     if current_density >= start_rought_judgment[anchor_dis]:
                         start_index = max(i - start_expand[anchor_dis], 0)
@@ -97,7 +103,7 @@ def cluster_anchors(anchors, anchor_mark_list, indel, cover):
                     logo = 1
                 if current_density >= end_rought_judgment[anchor_dis]:
                     end_index = min(i + 24 + end_expand[anchor_dis],
-                                    len(anchor_mark_list[cluster_first:cluster_last + 1]) - 1)
+                                    len(cluster_marks) - 1)
                 if current_density >= fuzzy_tr_anchor_boundary_density[anchor_dis]:
                     fuzzy_tr_end_index = i + 24
                 if i % 5 == 0:
@@ -116,10 +122,10 @@ def cluster_anchors(anchors, anchor_mark_list, indel, cover):
                         (cluster_first, cluster_last, cluster_first + fuzzy_tr_start_index,
                          cluster_first + fuzzy_tr_end_index, 0))
             # if logo == 0:
-            #     for i in range(1, len(anchor_mark_list[cluster_first:cluster_last + 1]) - 25 + 1):
+            #     for i in range(1, len(cluster_marks) - 25 + 1):
             #         # 更新窗口内的区密度
-            #         current_density = current_density - anchor_mark_list[cluster_first:cluster_last + 1][i - 1] + \
-            #                           anchor_mark_list[cluster_first:cluster_last + 1][i + 25 - 1]
+            #         current_density = current_density - cluster_marks[i - 1] + \
+            #                           cluster_marks[i + 25 - 1]
             #         if start_index == -1:
             #             if current_density >= start_rought_judgment[anchor_dis]:
             #                 start_index = max(i - start_expand[anchor_dis], 0)
@@ -128,19 +134,25 @@ def cluster_anchors(anchors, anchor_mark_list, indel, cover):
             #             break
             # if logo == 0:
             #     continue
-            # current_density = sum(anchor_mark_list[cluster_first:cluster_last + 1][-25:])
+            # current_density = sum(cluster_marks[-25:])
             # if current_density >= end_rought_judgment[anchor_dis]:
-            #     end_index = len(anchor_mark_list[cluster_first:cluster_last + 1]) - 1
+            #     end_index = len(cluster_marks) - 1
             # else:
-            #     for i in range(len(anchor_mark_list[cluster_first:cluster_last + 1]) - 2, start_index + 23, -1):
-            #         current_density = current_density - anchor_mark_list[cluster_first:cluster_last + 1][i + 1] + \
-            #                           anchor_mark_list[cluster_first:cluster_last + 1][i - 25 + 1]
+            #     for i in range(len(cluster_marks) - 2, start_index + 23, -1):
+            #         current_density = current_density - cluster_marks[i + 1] + \
+            #                           cluster_marks[i - 25 + 1]
             #         if current_density >= end_rought_judgment[anchor_dis]:
             #             end_index = min(i + end_expand[anchor_dis],
-            #                             len(anchor_mark_list[cluster_first:cluster_last + 1]) - 1)
+            #                             len(cluster_marks) - 1)
             #             break
 
     return fuzzy_repeating_region
+
+
+def cluster_anchors(anchors, anchor_mark_list, indel, cover):
+    if _compiled_cluster_anchors is not None:
+        return _compiled_cluster_anchors(anchors, anchor_mark_list, indel, cover)
+    return cluster_anchors_python(anchors, anchor_mark_list, indel, cover)
 
 
 def filter_chaotic_repeats(fuzzy_repeats, sub_read, n):
@@ -176,54 +188,60 @@ def filter_chaotic_repeats(fuzzy_repeats, sub_read, n):
                         if window_ones_count > max_ones_count:
                             max_ones_count = window_ones_count
                 elif len(mot) in [2, 3]:
+                    # Exact integer units: full support n, fuzzy support n-1.
+                    visit = [value * len(mot) for value in visit]
                     pattern = f"({mot}){{s<=1}}"
                     matches = regex.finditer(pattern, str(to_scan_sequence))
                     positions = [match.start() for match in matches]
                     for m_p in positions:
                         for i in range(len(mot)):
-                            visit[m_p + i] = visit[m_p + i] + (1 - visit[m_p + i]) * (len(mot) - 1) / len(mot)
+                            visit[m_p + i] = max(visit[m_p + i], len(mot) - 1)
                     windows = sum(visit[:20])
-                    window_ones_count = math.floor(windows)
+                    window_ones_count = windows // len(mot)
                     max_ones_count = window_ones_count
 
                     for i in range(1, len(visit) - 19):
                         # 更新窗口中1的数量
                         windows += visit[i + 19] - visit[i - 1]
-                        window_ones_count = math.floor(windows)
+                        window_ones_count = windows // len(mot)
                         if window_ones_count > max_ones_count:
                             max_ones_count = window_ones_count
                 elif len(mot) == 5:
+                    # Exact integer units: full support n, fuzzy support n-2.
+                    visit = [value * len(mot) for value in visit]
                     pattern = f"({mot}){{s<=2}}"
                     matches = regex.finditer(pattern, str(to_scan_sequence))
                     positions = [match.start() for match in matches]
                     for m_p in positions:
                         for i in range(len(mot)):
-                            visit[m_p + i] = visit[m_p + i] + (1 - visit[m_p + i]) * (len(mot) - 2) / len(mot)
+                            visit[m_p + i] = max(visit[m_p + i], len(mot) - 2)
                     windows = sum(visit[:20])
-                    window_ones_count = math.floor(windows)
+                    window_ones_count = windows // len(mot)
                     max_ones_count = window_ones_count
 
                     for i in range(1, len(visit) - 19):
                         # 更新窗口中1的数量
                         windows += visit[i + 19] - visit[i - 1]
-                        window_ones_count = math.floor(windows)
+                        window_ones_count = windows // len(mot)
                         if window_ones_count > max_ones_count:
                             max_ones_count = window_ones_count
                 else:
+                    # Exact integer units: full support n, fuzzy support n-3.
+                    visit = [value * len(mot) for value in visit]
                     pattern = f"({mot}){{s<=3}}"
                     matches = regex.finditer(pattern, str(to_scan_sequence))
                     positions = [match.start() for match in matches]
                     for m_p in positions:
                         for i in range(len(mot)):
-                            visit[m_p + i] = visit[m_p + i] + (1 - visit[m_p + i]) * (len(mot) - 3) / len(mot)
+                            visit[m_p + i] = max(visit[m_p + i], len(mot) - 3)
                     windows = sum(visit[:20])
-                    window_ones_count = math.floor(windows)
+                    window_ones_count = windows // len(mot)
                     max_ones_count = window_ones_count
 
                     for i in range(1, len(visit) - 19):
                         # 更新窗口中1的数量
                         windows += visit[i + 19] - visit[i - 1]
-                        window_ones_count = math.floor(windows)
+                        window_ones_count = windows // len(mot)
                         if window_ones_count > max_ones_count:
                             max_ones_count = window_ones_count
 
@@ -272,16 +290,16 @@ def filter_chaotic_repeats(fuzzy_repeats, sub_read, n):
                         if fluctuations_sum / perfect_count[len(mot) - 1] <= consistent_density[len(mot) - 1]:
                             continue
                         else:
-                            to_check_large_probe_trs.append((motif_mark_indexes[fuzzy_tr_start] + f_r[3],
+                            to_check_large_probe_trs.append((motif_mark_indexes[fuzzy_tr_start] + f_r[2],
                                                              motif_mark_indexes[
-                                                                 g_index + perfect_count[len(mot) - 1] - 2] + f_r[3],
+                                                                 g_index + perfect_count[len(mot) - 1] - 2] + f_r[2],
                                                              mot))
                             fuzzy_tr_start = -1
                             fluctuations_sum = 0
                             should_start = g_index + perfect_count[len(mot) - 1] - 1
                 if fuzzy_tr_start != -1:
                     to_check_large_probe_trs.append(
-                        (motif_mark_indexes[fuzzy_tr_start] + f_r[3], motif_mark_indexes[-1] + f_r[3], mot))
+                        (motif_mark_indexes[fuzzy_tr_start] + f_r[2], motif_mark_indexes[-1] + f_r[2], mot))
 
     for t_o_t in to_check_large_probe_trs:
         # 过滤掉明显不符合串联重复结构的序列————大探针细过滤，同时获取大致起始和结束位置
@@ -296,24 +314,20 @@ def filter_chaotic_repeats(fuzzy_repeats, sub_read, n):
         start_index = -1
         end_index = -1
         for i in range(len(to_scan_sequence) // 5 - 3):
-            probe_align = aligner.align(probe, to_scan_sequence[i * 5:i * 5 + 20])
-            if probe_align:
-                pass
-            else:
+            probe_score = aligner.score(probe, to_scan_sequence[i * 5:i * 5 + 20])
+            if probe_score <= 0:
                 continue
-            if probe_align[0].score >= start_probe[len(t_o_t[2]) - 1]:
+            if probe_score >= start_probe[len(t_o_t[2]) - 1]:
                 start_index = max(i * 5 - 5, 0)
                 break
         if start_index == -1:
             continue
         for j in range((len(to_scan_sequence) - start_index - 1) // 5 - 3):
-            probe_align = aligner.align(probe, to_scan_sequence[
+            probe_score = aligner.score(probe, to_scan_sequence[
                                                len(to_scan_sequence) - j * 5 - 20:len(to_scan_sequence) - j * 5])
-            if probe_align:
-                pass
-            else:
+            if probe_score <= 0:
                 continue
-            if probe_align[0].score >= end_probe[len(t_o_t[2]) - 1]:
+            if probe_score >= end_probe[len(t_o_t[2]) - 1]:
                 end_index = min(len(to_scan_sequence) - j * 5 + 4, len(to_scan_sequence) - 1)
                 break
         if end_index == -1:
